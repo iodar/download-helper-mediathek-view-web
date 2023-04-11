@@ -1,5 +1,24 @@
 #!/bin/bash
 
+function print-help {
+    echo "Download SRF videos
+
+  USAGE
+    $0 [url-from-MediathekViewWeb] [video-name-without-extension]
+
+  PARAMETERS
+    url-from-MediathekViewWeb         URL from MediathekViewWeb
+                                      (see README on how to obtain that)
+    video-name-without-extension      Video name for final video
+
+  AUTHOR
+    iodar (2023)"
+}
+
+[[ "$1" == "--help" || "$1" == "-h" ]] && \
+    print-help && \
+    exit 0
+
 # Index ist m3u8 file with names of individual segments
 indexFileUrl="$1"
 
