@@ -53,15 +53,31 @@ totalNumberOfSegments=${#segmentsArray[@]}
 index=1
 # read chunks from index file and download individual chunks
 for chunk in ${segmentsArray[@]}; do
-    # create valid download url from baseUrl and
-    # name of chunk (including file extension)
-    echo -ne "\rDownloading files (${index}/$totalNumberOfSegments) ..."
+    downloadedChunksSizeMsg="Download starting"
+    # check size of downloaded chunks
+    if [ $(ls -1 ${videoNameSafe}_segment*.ts > /dev/null 2>&1; echo $?) -eq 0 ]; then
+      if [ $(ls -1 ${videoNameSafe}_segment*.ts | wc -l | awk '{print $1}') -ge 1 ]; then
+        sizeOfDownloadedChunksInByte="$(ls -la ${videoNameSafe}_segment*.ts | awk '{sum += $5} END{print sum}')"
+      else
+        sizeOfDownloadedChunksInByte=0
+      fi
+
+      # calculate size in MB if there is at least one
+      # chunk present
+      if [ $sizeOfDownloadedChunksInByte -ne 0 ]; then
+        downloadedChunkSizeAsDecimal="$sizeOfDownloadedChunksInByte.0"
+        downloadedChunkSizeInMb=$(echo "$downloadedChunkSizeAsDecimal" | awk '{printf "%0.2f\n", ($1 / 1048576.0); }')
+        downloadedChunksSizeMsg="$downloadedChunkSizeInMb MB"
+      fi
+    fi
+    echo -ne "\r                                                               "
+    echo -ne "\rDownloading files (${index}/$totalNumberOfSegments) ($downloadedChunksSizeMsg) ... "
+    
     curl -sL "${baseUrl}/${chunk}" -o "${videoNameSafe}_${chunk}"
     index=$(expr $index + 1)
 done
 # clear stdout
-echo -ne "\r                                                           "
-echo -e "\rDownloading files ... Done"
+echo -e "Done"
 
 # Renaming segments to allow for sorting
 #
