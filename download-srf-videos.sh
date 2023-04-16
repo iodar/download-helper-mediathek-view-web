@@ -43,41 +43,85 @@ baseUrl="$(echo $indexFileUrl | sed -r 's/\/index.*$//g')"
 # download index file
 curl -sL "$indexFileUrl" -o "${videoNameSafe}.m3u8"
 
+function download-chunks {
 # download all segments of the video file
 # uses videoNameSafe as prefix for every segment
 # to make it distinguishable from segments of
 # other video files
-echo -ne "Downloading files ..."
-segmentsArray=($(cat $videoNameSafe.m3u8 | grep -vo "^#"))
-totalNumberOfSegments=${#segmentsArray[@]}
-index=1
-# read chunks from index file and download individual chunks
-for chunk in ${segmentsArray[@]}; do
-    downloadedChunksSizeMsg="Download starting"
-    # check size of downloaded chunks
-    if [ $(ls -1 ${videoNameSafe}_segment*.ts > /dev/null 2>&1; echo $?) -eq 0 ]; then
-      if [ $(ls -1 ${videoNameSafe}_segment*.ts | wc -l | awk '{print $1}') -ge 1 ]; then
-        sizeOfDownloadedChunksInByte="$(ls -la ${videoNameSafe}_segment*.ts | awk '{sum += $5} END{print sum}')"
-      else
-        sizeOfDownloadedChunksInByte=0
-      fi
+  echo -ne "Downloading files ..."
+  local segmentsArray=($@)
+  totalNumberOfSegments=${#segmentsArray[@]}
+  index=1
+  # read chunks from index file and download individual chunks
+  for chunk in ${segmentsArray[@]}; do
+      downloadedChunksSizeMsg="Download starting"
+      # check size of downloaded chunks
+      if [ $(ls -1 ${videoNameSafe}_segment*.ts > /dev/null 2>&1; echo $?) -eq 0 ]; then
+        if [ $(ls -1 ${videoNameSafe}_segment*.ts | wc -l | awk '{print $1}') -ge 1 ]; then
+          sizeOfDownloadedChunksInByte="$(ls -la ${videoNameSafe}_segment*.ts | awk '{sum += $5} END{print sum}')"
+        else
+          sizeOfDownloadedChunksInByte=0
+        fi
 
-      # calculate size in MB if there is at least one
-      # chunk present
-      if [ $sizeOfDownloadedChunksInByte -ne 0 ]; then
-        downloadedChunkSizeAsDecimal="$sizeOfDownloadedChunksInByte.0"
-        downloadedChunkSizeInMb=$(echo "$downloadedChunkSizeAsDecimal" | awk '{printf "%0.2f\n", ($1 / 1048576.0); }')
-        downloadedChunksSizeMsg="$downloadedChunkSizeInMb MB"
+        # calculate size in MB if there is at least one
+        # chunk present
+        if [ $sizeOfDownloadedChunksInByte -ne 0 ]; then
+          downloadedChunkSizeAsDecimal="$sizeOfDownloadedChunksInByte.0"
+          downloadedChunkSizeInMb=$(echo "$downloadedChunkSizeAsDecimal" | awk '{printf "%0.2f\n", ($1 / 1048576.0); }')
+          downloadedChunksSizeMsg="$downloadedChunkSizeInMb MB"
+        fi
       fi
+      echo -ne "\r                                                               "
+      echo -ne "\rDownloading files (${index}/$totalNumberOfSegments) ($downloadedChunksSizeMsg) ... "
+      
+      if [ ! -f "${videoNameSafe}_${chunk}" ]; then
+        curl -sL "${baseUrl}/${chunk}" -o "${videoNameSafe}_${chunk}"
+      fi
+      index=$(expr $index + 1)
+  done
+  # clear stdout
+  echo -e "Done"
+}
+
+# download all segments of the video file
+# uses videoNameSafe as prefix for every segment
+# to make it distinguishable from segments of
+# other video files
+segmentsArray=($(cat $videoNameSafe.m3u8 | grep -vo "^#"))
+download-chunks ${segmentsArray[@]}
+
+# Check all video files for validity using
+# ffprobe. If not valid, that download chunk
+# with different quality
+
+echo -ne "Checking segments for faults ... "
+segmentsToReDownload=()
+allSegmentFiles=($(ls -1 ${videoNameSafe}_segment*.ts))
+totalNumberOfSegments=${#allSegmentFiles[@]}
+checkSegmentIndex=1
+for segment in ${allSegmentFiles[@]}; do
+  echo -ne "\rChecking segments for faults ($checkSegmentIndex/$totalNumberOfSegments) ... "
+  ffprobe -i $segment > /dev/null 2>&1
+  if [ $? -ne 0 ]; then
+    rm $segment
+    orignalSegmentName=$(echo $segment | sed -r "s/^${videoNameSafe}_//g")
+    segmentMediumQualityName=$(echo $orignalSegmentName | sed -r 's/f[[:digit:]]/f1/g')
+    curlResult="$(curl -sLI "$baseUrl/$segmentMediumQualityName" | head -n 1 | grep -oE "HTTP\/1\.1 200 OK")"
+    if [[ "$curlResult" == "HTTP/1.1 200 OK" ]]; then
+      segmentsToReDownload+=($segmentMediumQualityName)
     fi
-    echo -ne "\r                                                               "
-    echo -ne "\rDownloading files (${index}/$totalNumberOfSegments) ($downloadedChunksSizeMsg) ... "
-    
-    curl -sL "${baseUrl}/${chunk}" -o "${videoNameSafe}_${chunk}"
-    index=$(expr $index + 1)
+  fi
+  checkSegmentIndex=$(expr $checkSegmentIndex + 1)
 done
-# clear stdout
-echo -e "Done"
+echo "Done"
+
+if [ ${#segmentsToReDownload[@]} -gt 0 ]; then
+  echo "Found ${#segmentsToReDownload[@]} faulty segments. Attempting to download segments ..."
+  # re downloading faulty segments
+  download-chunks ${segmentsToReDownload[@]}
+else
+  echo "Found no faulty segments. Skipping re download"
+fi
 
 # Renaming segments to allow for sorting
 #
@@ -127,16 +171,23 @@ done
 # as it's file name
 echo "Concatenating files using ffmpeg ..."
 ffmpeg -loglevel repeat+warning -f concat -safe 0 -i "${videoNameSafe}.allFiles.list" -c copy "${videoName}.ts"
+ffmpegExitCode=$?
 echo "Concatenating files using ffmpeg ... Done"
 
 
 # removing all chunks / segments, ffmpeg all files list and
-# .m3u8 playlist file 
-echo "Performing clean up ..."
-echo "rm \"${videoNameSafe}.allFiles.list\""
-rm "${videoNameSafe}.allFiles.list"
-echo "rm ${videoNameSafe}_segment*.ts"
-rm ${videoNameSafe}_segment*.ts
-echo "rm \"${videoNameSafe}.m3u8\""
-rm "${videoNameSafe}.m3u8"
-echo "Performing clean up ... Done"
+# .m3u8 playlist file
+
+if [ $ffmpegExitCode -ne 0 ]; then
+  echo "ffmpeg command return exit code not equal to 0: $ffmpegExitCode"
+  echo "Skipping clean up ..."
+else 
+  echo "Performing clean up ..."
+  echo "rm \"${videoNameSafe}.allFiles.list\""
+  rm "${videoNameSafe}.allFiles.list"
+  echo "rm ${videoNameSafe}_segment*.ts"
+  rm ${videoNameSafe}_segment*.ts
+  echo "rm \"${videoNameSafe}.m3u8\""
+  rm "${videoNameSafe}.m3u8"
+  echo "Performing clean up ... Done"
+fi
