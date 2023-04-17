@@ -58,7 +58,7 @@ function download-chunks {
       # check size of downloaded chunks
       if [ $(ls -1 ${videoNameSafe}_segment*.ts > /dev/null 2>&1; echo $?) -eq 0 ]; then
         if [ $(ls -1 ${videoNameSafe}_segment*.ts | wc -l | awk '{print $1}') -ge 1 ]; then
-          sizeOfDownloadedChunksInByte="$(ls -la ${videoNameSafe}_segment*.ts | awk '{sum += $5} END{print sum}')"
+          sizeOfDownloadedChunksInByte="$(ls -la ${videoNameSafe}_segment*.ts | awk '{sum += $5} END{printf "%0.2f", sum}')"
         else
           sizeOfDownloadedChunksInByte=0
         fi
