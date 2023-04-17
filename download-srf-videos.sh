@@ -87,7 +87,7 @@ function download-chunks {
 # uses videoNameSafe as prefix for every segment
 # to make it distinguishable from segments of
 # other video files
-segmentsArray=($(cat $videoNameSafe.m3u8 | grep -vo "^#"))
+segmentsArray=($(cat $videoNameSafe.m3u8 | grep -v "^#"))
 download-chunks ${segmentsArray[@]}
 
 # Check all video files for validity using
