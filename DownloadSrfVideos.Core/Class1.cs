@@ -1,5 +1,7 @@
-﻿namespace DownloadSrfVideos.Core;
-public class Class1
+﻿namespace DownloadSrfVideos.Core
 {
+    public class Class1
+    {
 
+    }
 }
