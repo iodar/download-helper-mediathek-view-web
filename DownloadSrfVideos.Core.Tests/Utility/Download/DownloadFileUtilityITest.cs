@@ -8,11 +8,13 @@ namespace DownloadSrfVideos.Core.Tests.Utility.Download
     [TestFixture(Category = "Integration")]
     public class DownloadFileUtilityITest : TestBase
     {
+        private string httpEuHttpbinOrgImageJpegUri = "http://eu.httpbin.org/image/jpeg";
+
         [Test]
         public void WhenCallingDownloadFile_ItShouldDownloadFile()
         {
             var imageTargetPath = Path.Combine(TempDirectory, "image.jpeg");
-            DownloadFileUtility.ExecuteDownloadFile("http://eu.httpbin.org/image/jpeg", imageTargetPath);
+            DownloadFileUtility.ExecuteDownloadFile(httpEuHttpbinOrgImageJpegUri, imageTargetPath);
             using var imageFileStream = File.Open(imageTargetPath, FileMode.Open);
             Assert.That(imageFileStream, Has.Length.GreaterThan(0));
         }
@@ -21,7 +23,7 @@ namespace DownloadSrfVideos.Core.Tests.Utility.Download
         public void WhenSuccessfullyDownloadingFile_ThenShouldReturnDownloadResultWithTargetPath()
         {
             var imageTargetPath = Path.Combine(TempDirectory, "image.jpeg");
-            var downloadResult = DownloadFileUtility.ExecuteDownloadFile("http://eu.httpbin.org/image/jpeg", imageTargetPath);
+            var downloadResult = DownloadFileUtility.ExecuteDownloadFile(httpEuHttpbinOrgImageJpegUri, imageTargetPath);
             
             Assert.That(downloadResult.FilePath, Is.EqualTo(imageTargetPath));
         }
@@ -31,7 +33,7 @@ namespace DownloadSrfVideos.Core.Tests.Utility.Download
         {
             var targetFileName = "image.jpeg";
             var imageTargetPath = Path.Combine(TempDirectory, targetFileName);
-            var downloadResult = DownloadFileUtility.ExecuteDownloadFile("http://eu.httpbin.org/image/jpeg", imageTargetPath);
+            var downloadResult = DownloadFileUtility.ExecuteDownloadFile(httpEuHttpbinOrgImageJpegUri, imageTargetPath);
             
             Assert.That(downloadResult.FileName, Is.EqualTo(targetFileName));
         }
