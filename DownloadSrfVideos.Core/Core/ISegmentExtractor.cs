@@ -4,6 +4,6 @@ namespace DownloadSrfVideos.Core.Core
 {
     public interface ISegmentExtractor
     {
-        IList<string> ExtractSegmentsFromFile(string filePath);
+        IList<string> ExtractSegments(string fileContent);
     }
 }
