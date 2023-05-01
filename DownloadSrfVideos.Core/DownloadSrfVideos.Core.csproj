@@ -19,4 +19,8 @@
     <None Remove="obj\**" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="FFMpegCore" Version="5.1.0" />
+  </ItemGroup>
+
 </Project>
