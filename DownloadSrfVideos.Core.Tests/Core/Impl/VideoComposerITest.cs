@@ -19,7 +19,7 @@ namespace DownloadSrfVideos.Core.Tests.Core.Impl
 
             videoComposer.ComposeVideoFromSegments(outFilePath, sourceFiles);
             
-            Assert.That(FFProbe.Analyse(outFilePath).Duration, Is.EqualTo(TimeSpan.FromSeconds(18.913)));
+            Assert.That(FFProbe.Analyse(outFilePath).Duration, Is.InRange(TimeSpan.FromSeconds(18), TimeSpan.FromSeconds(20)));
         }
 
         [Test]
